@@ -186,7 +186,7 @@ elif st.session_state.page == "Browse Items":
 
         st.markdown("---")
 
-    st.warning("No items to display (connect backend here)")
+    
 
     # Static UI cards
     # for i in range(3):
