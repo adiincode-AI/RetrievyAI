@@ -1,5 +1,5 @@
 import streamlit as st
-from retrievyDB import *
+from appDB import *
 import os
 
 
@@ -106,26 +106,33 @@ elif st.session_state.page == "Report Item":
         description = st.text_area("Description")
         image_path = st.file_uploader(
             "Upload Image", type=["jpg", "png", "jpeg"])
-
+        
         submit = st.form_submit_button("Submit")
-        import os
 
-        UPLOAD_FOLDER = "uploads"
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        if submit:
+            file_path = None
 
-        if image_path is not None:
-            image_path = os.path.join(UPLOAD_FOLDER, image_path.name)
+            if image_path is not None:
+                UPLOAD_FOLDER = "uploads"
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-            with open(image_path, "wb") as f:
-                f.write(image_path.getbuffer())
-        else:
-            image_path = None
+                file_path = os.path.join(UPLOAD_FOLDER, image_path.name)
 
-    if submit:
-        st.success("✅ Form submitted")
-        add_item(item_name, item_type, location, date, category,
-                 contact_info, description, image_path)
+                with open(file_path, "wb") as f:
+                    f.write(image_path.getvalue())
 
+            add_item(
+                item_name,
+                item_type,
+                location,
+                str(date),
+                category,
+                contact_info,
+                description,
+                file_path
+            )
+
+            st.success("✅ Form submitted")
 # ----------------------------
 # Browse Items Page
 # ----------------------------
