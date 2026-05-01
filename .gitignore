@@ -1,14 +1,9 @@
+*.db
+*.sqbpro
+*.sqlit
 
 __pycache__/
 *.pyc
 
 venv/
-
-*.db
-*.sqbpro
-data/
-
 uploads/
-
-.DS_Store
-Thumbs.db

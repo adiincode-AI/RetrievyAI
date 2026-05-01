@@ -1,5 +1,5 @@
 import streamlit as st
-from appDB import *
+from database import *
 import os
 
 
