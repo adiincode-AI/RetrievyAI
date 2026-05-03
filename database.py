@@ -1,4 +1,6 @@
 import sqlite3
+import uuid
+import bcrypt
 
 
 def connect_db():
@@ -8,6 +10,12 @@ def connect_db():
 def create_table():
     connection = connect_db()
     cursor = connection.cursor()
+    cursor.execute("""CREATE TABLE IF NOT EXISTS users(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    password BLOB NOT NULL
+                   )
+                """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS items(
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,18 +26,21 @@ def create_table():
                     date TEXT,
                     contact_info TEXT,
                     description TEXT,
-                    image_path TEXT
+                    image_path TEXT,
+                    user_id INTEGER,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
                    )
                 """)
+
     connection.commit()
     connection.close()
 
 
-def add_item(item_name, item_type, location, date, category, contact_info, description, image_path):
+def add_item(item_name, item_type, location, date, category, contact_info, description, image_path,user_id):
     connection = connect_db()
     cursor = connection.cursor()
-    cursor.execute("INSERT INTO items(item_name,item_type,location,date,category,contact_info,description,image_path) VALUES (?,?,?,?,?,?,?,?)",
-                   (item_name, item_type, location, date, category, contact_info, description, image_path))
+    cursor.execute("INSERT INTO items(item_name,item_type,location,date,category,contact_info,description,image_path,user_id) VALUES (?,?,?,?,?,?,?,?,?)",
+                   (item_name, item_type, location, date, category, contact_info, description, image_path,user_id))
     connection.commit()
     connection.close()
 
@@ -40,6 +51,7 @@ def get_all_items():
     cursor = connection.cursor()
     cursor.execute("SELECT *FROM items")
     rows = cursor.fetchall()
+    connection.close() 
     return [dict(row) for row in rows]
 
 def get_items_by_type(item_type):
@@ -58,7 +70,53 @@ def get_items_by_category(category):
     cursor.execute("SELECT * FROM items WHERE category= ?", (category,))
     rows = cursor.fetchall()
     connection.close()
-    return [dict(row) for row in rows] 
+    return [dict(row) for row in rows]
+ 
+def register_user(username, password):
+    connection = connect_db()
+    cursor = connection.cursor()
+
+    hashed = bcrypt.hashpw(password.encode(),bcrypt.gensalt())
+
+    try:
+        cursor.execute(
+            "INSERT INTO users(username, password) VALUES(?,?)",(username, hashed)
+        )
+        connection.commit()
+        return True
+    except:
+        return False
+    finally:
+        connection.close()
+
+def login_user(username, password):
+    connection = connect_db()
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT id, password FROM users WHERE username = ?",(username,))
+    user = cursor.fetchone()
+    connection.close()
+
+    if user:
+        user_id, stored_hash = user
+
+        if bcrypt.checkpw(password.encode(),stored_hash):
+            return {"id": user_id, 
+                    "username": username
+            }
+    
+    return None
+
+def delete_item(item_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM items WHERE id = ?", (item_id,))
+    conn.commit()
+    conn.close()
+    
+    
+
+
 
 
 

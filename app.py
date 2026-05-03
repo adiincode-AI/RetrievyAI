@@ -1,27 +1,29 @@
 import streamlit as st
 from database import *
 import os
-
+import uuid
 
 create_table()
+
 st.set_page_config(page_title="Retrievy", layout="wide")
 
-# ----------------------------
-# Session State Initialization
-# ----------------------------
+if "user" not in st.session_state:
+    st.session_state.user = None
+
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
 if "item_type" not in st.session_state:
     st.session_state.item_type = "Lost"
 
-# ----------------------------
-# Sidebar Navigation
-# ----------------------------
 st.sidebar.title("📌 Retrievy")
 st.sidebar.subheader("Lost and Found system")
 
-pages = ["Home", "Report Item", "Browse Items"]
+if st.session_state.user:
+    st.sidebar.write(f"👤 User ID: {st.session_state.user['id']}")
+
+
+pages = ["Home", "Login", "Register", "Report Item", "Browse Items","My Items"]
 
 selected = st.sidebar.radio(
     "Navigate",
@@ -29,21 +31,65 @@ selected = st.sidebar.radio(
     index=pages.index(st.session_state.page)
 )
 
+
 st.session_state.page = selected
 
-# ----------------------------
-# Header
-# ----------------------------
+if st.session_state.user:
+    st.sidebar.write(f"Logged in as {st.session_state.user['username']}")
+
+    if st.sidebar.button("Logout"):
+        st.session_state.user = None
+        st.rerun()
+
 st.markdown("""
-    <h1 style='text-align: center;'>🕵️Retrievy🕵️</h1>        
+    <h1 style='text-align: center;'>🕵️Retrievy🕵️</h1>
     <h4 style='text-align: center;'>Lost & Found System</h4>
     <hr>
 """, unsafe_allow_html=True)
 
-# ----------------------------
-# Home Page
-# ----------------------------
-if st.session_state.page == "Home":
+
+if st.session_state.page == "Login":
+    st.subheader("🔑 Login")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if not username.strip():
+            st.error("Username cannot be empty")
+            st.stop()
+
+        user = login_user(username, password)
+        if user:
+            st.session_state.user = user
+            st.session_state.page = "Home"
+            st.rerun()
+            
+        else:
+            st.error("Invalid credentials")
+
+elif st.session_state.page == "Register":
+    st.subheader("📝 Register")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Register"):
+        if not username.strip():
+            st.error("Username cannot be empty")
+            st.stop()
+        if len(password) < 4:
+            st.error("Password must be at least 4 characters")
+            st.stop()
+
+        success = register_user(username, password)
+
+        if success:
+            st.success("User created")
+        else:
+            st.error("Username exists")
+
+elif st.session_state.page == "Home":
     col1, col2 = st.columns(2)
 
     with col1:
@@ -70,15 +116,17 @@ if st.session_state.page == "Home":
 
     st.markdown("### 🚀 How It Works")
     st.markdown("""
-    1. Report a lost or found item  
-    2. Browse listings  
-    3. Connect with the owner  
+    1. Report a lost or found item
+    2. Browse listings
+    3. Connect with the owner
     """)
 
-# ----------------------------
-# Report Item Page
-# ----------------------------
 elif st.session_state.page == "Report Item":
+
+    if not st.session_state.user:
+        st.warning("You must be logged in")
+        st.stop()
+
     st.subheader("➕ Report Lost / Found Item")
 
     with st.form("report_form"):
@@ -106,17 +154,22 @@ elif st.session_state.page == "Report Item":
         description = st.text_area("Description")
         image_path = st.file_uploader(
             "Upload Image", type=["jpg", "png", "jpeg"])
-        
+
         submit = st.form_submit_button("Submit")
 
         if submit:
+            if not item_name or not location:
+                st.error("Item name and location are required")
+                st.stop()
+
             file_path = None
 
             if image_path is not None:
                 UPLOAD_FOLDER = "uploads"
                 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-                file_path = os.path.join(UPLOAD_FOLDER, image_path.name)
+                filename = str(uuid.uuid4()) + "_" + image_path.name
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
 
                 with open(file_path, "wb") as f:
                     f.write(image_path.getvalue())
@@ -129,13 +182,12 @@ elif st.session_state.page == "Report Item":
                 category,
                 contact_info,
                 description,
-                file_path
+                file_path,
+                st.session_state.user["id"]
             )
 
             st.success("✅ Form submitted")
-# ----------------------------
-# Browse Items Page
-# ----------------------------
+
 
 elif st.session_state.page == "Browse Items":
     st.subheader("📋 Browse Items")
@@ -148,7 +200,7 @@ elif st.session_state.page == "Browse Items":
 
     with col2:
         second_selectbox = st.selectbox(
-            "Category", ["All", "Electronics", "Documents", "Clothing", "Others"])
+            "Category", ["All", "Electronics", "Documents", "Clothing", "Other"])
 
     with col3:
         third_selectbox = st.text_input("Search")
@@ -161,6 +213,14 @@ elif st.session_state.page == "Browse Items":
     if second_selectbox != "All":
         items = [item for item in items if item["category"] == second_selectbox]
 
+    if third_selectbox:
+        query = third_selectbox.lower()
+        items = [
+            item for item in items
+            if query in item["item_name"].lower()
+            or (item["description"] and query in item["description"].lower())
+        ]
+
     if not items:
         st.warning("No items found")
     else:
@@ -169,7 +229,7 @@ elif st.session_state.page == "Browse Items":
     for item in items:
         st.subheader(item["item_name"])
 
-        colA, colB,colC = st.columns(3)
+        colA, colB, colC = st.columns(3)
 
         with colA:
             st.write(f"📍 {item['location']}")
@@ -186,7 +246,42 @@ elif st.session_state.page == "Browse Items":
 
         st.markdown("---")
 
-    
+elif st.session_state.page == "My Items":
+    if not st.session_state.user:
+        st.warning("You must be logged in")
+        st.stop()
+
+    st.subheader("📋 My Items")
+
+    items = get_all_items()
+
+    my_items = [
+        item for item in items
+        if item["user_id"] == st.session_state.user["id"]
+    ]
+
+    if not my_items:
+        st.info("No items posted yet")
+    else:
+        for item in my_items:
+            st.subheader(item["item_name"])
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write(f"📍 {item['location']}")
+                st.write(f"📅 {item['date']}")
+
+            with col2:
+                st.write(f"📦 {item['category']}")
+                st.write(f"📝 {item['description']}")
+
+                if st.button(f"Delete {item['id']}", key=f"del_{item['id']}"):
+                    delete_item(item["id"])
+                    st.success("Item deleted")
+                    st.rerun()
+
+            st.markdown("---")
 
     # Static UI cards
     # for i in range(3):
