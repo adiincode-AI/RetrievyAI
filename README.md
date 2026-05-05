@@ -15,10 +15,8 @@ Retrievy is a full-stack Lost & Found web application built using Python and SQL
 
 ## Upcoming Features
 
--  User authentication (secure login/signup using bcrypt)
 -  Search items by category, location, and type
 -  Basic matching logic to connect lost & found reports
--  SQLite database integration
 
 ---
 
